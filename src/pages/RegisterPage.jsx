@@ -41,9 +41,10 @@ export default function RegisterPage() {
         navigate('/onboarding');
       }
     } catch (err) {
-      setErrorMessage(
-        err.response?.data?.message || err.response?.data?.errors?.[0]?.message || 'Registration failed.'
-      );
+      const detailedErr = err.response?.data?.errors?.[0]
+        ? `${err.response.data.errors[0].path ? `${err.response.data.errors[0].path}: ` : ''}${err.response.data.errors[0].message}`
+        : err.response?.data?.message || err.message || 'Registration failed. Please check network connection.';
+      setErrorMessage(detailedErr);
     } finally {
       setIsSubmitting(false);
     }
