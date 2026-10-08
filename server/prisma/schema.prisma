@@ -1,0 +1,168 @@
+// Prisma Schema for VigilEye AI
+// Supports SQLite for instant local zero-dependency runtime and PostgreSQL for production
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String                 @id @default(uuid())
+  email                 String                 @unique
+  username              String                 @unique
+  fullName              String
+  passwordHash          String
+  phone                 String?
+  dob                   String?
+  country               String?                @default("United States")
+  timezone              String?                @default("UTC")
+  language              String?                @default("en")
+  role                  String                 @default("USER") // USER, ADMIN
+  isEmailVerified       Boolean                @default(false)
+  isTwoFactorEnabled    Boolean                @default(false)
+  twoFactorSecret       String?
+  isSuspended           Boolean                @default(false)
+  avatarUrl             String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  lastLoginAt           DateTime?
+
+  profile               Profile?
+  settings              UserSettings?
+  sessions              Session[]
+  drowsinessEvents      DrowsinessEvent[]
+  notifications         Notification[]
+  passwordResetTokens   PasswordResetToken[]
+  emailTokens           EmailVerificationToken[]
+  refreshTokens         RefreshToken[]
+  securityEvents        SecurityEvent[]
+}
+
+model Profile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio               String?
+  occupation        String?  @default("Driver / Professional")
+  emergencyContact  String?
+  themePreference   String?  @default("dark")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model UserSettings {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  earThreshold         Float    @default(0.21)
+  drowsinessThreshold  Float    @default(1.5)
+  alarmVolume          Float    @default(0.8)
+  alarmPattern         String   @default("siren")
+  isMuted              Boolean  @default(false)
+  showMesh             Boolean  @default(true)
+  showLabels           Boolean  @default(true)
+  smoothingFrames      Int      @default(3)
+  selectedCameraId     String   @default("")
+  darkMode             Boolean  @default(true)
+  compactMode          Boolean  @default(false)
+  localProcessingOnly  Boolean  @default(true)
+  allowAnalytics       Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Session {
+  id                    String            @id @default(uuid())
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startTime             DateTime          @default(now())
+  endTime               DateTime?
+  durationSeconds       Int               @default(0)
+  blinkCount            Int               @default(0)
+  averageBlinkRate      Float             @default(0.0) // blinks per minute
+  drowsinessCount       Int               @default(0)
+  longestClosureSeconds Float             @default(0.0)
+  avgEAR                Float             @default(0.0)
+  minEAR                Float             @default(0.0)
+  deviceName            String?           @default("Default Webcam")
+  browser               String?           @default("Chrome")
+  status                String            @default("COMPLETED") // ACTIVE, COMPLETED, INTERRUPTED
+  notes                 String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  drowsinessEvents      DrowsinessEvent[]
+}
+
+model DrowsinessEvent {
+  id              String   @id @default(uuid())
+  sessionId       String
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timestamp       DateTime @default(now())
+  durationSeconds Float    @default(1.5)
+  earAtTrigger    Float    @default(0.15)
+  resolvedType    String   @default("AUTO_ALARM_RESET") // AUTO_ALARM_RESET, MANUAL_DISMISS, TIMEOUT
+  notes           String?
+  createdAt       DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("SYSTEM") // DROWSINESS, SESSION, REPORT, SECURITY, SYSTEM
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model SecurityEvent {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType String   // LOGIN, LOGOUT, FAILED_LOGIN, PASSWORD_CHANGE, TWO_FACTOR_ENABLED, SESSION_REVOKED
+  ipAddress String?  @default("127.0.0.1")
+  userAgent String?  @default("Web Browser")
+  location  String?  @default("Localhost / Secure Device")
+  createdAt DateTime @default(now())
+}
